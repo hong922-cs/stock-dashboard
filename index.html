@@ -3,210 +3,240 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>내 주식 포트폴리오</title>
-    
-    <!-- Tailwind CSS -->
+    <title>내 주식 포트폴리오 대시보드</title>
+    <!-- Tailwind CSS for Layout -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <!-- PapaParse (CSV 파싱용) -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
-    
+    <!-- PapaParse for CSV Parsing -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
     <style>
-        @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css');
-        body {
-            font-family: 'Pretendard', sans-serif;
-            background-color: #0B1120; /* 딥 네이비 배경 */
-            color: #E2E8F0;
+        :root {
+            --navy-dark: #0f172a;
+            --navy-light: #1e293b;
+            --gold: #d4af37;
+            --gold-light: #f59e0b;
+            --danger: #ef4444;
+            --success: #10b981;
         }
-        /* 스크롤바 커스텀 (테이블용) */
-        ::-webkit-scrollbar { width: 8px; height: 8px; }
-        ::-webkit-scrollbar-track { background: #1E293B; }
-        ::-webkit-scrollbar-thumb { background: #475569; border-radius: 4px; }
-        ::-webkit-scrollbar-thumb:hover { background: #EAB308; }
+
+        body {
+            background-color: var(--navy-dark);
+            color: #f8fafc;
+            font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, Roboto, sans-serif;
+        }
+
+        .gold-gradient-text {
+            background: linear-gradient(to right, var(--gold), #fbbf24);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .card {
+            background-color: var(--navy-light);
+            border: 1px solid rgba(212, 175, 55, 0.2);
+            border-radius: 1rem;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+        }
+
+        .table-header {
+            border-bottom: 2px solid var(--gold);
+        }
+
+        tr:nth-child(even) {
+            background-color: rgba(255, 255, 255, 0.03);
+        }
+
+        .negative { color: var(--danger); }
+        .positive { color: var(--success); }
+        
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: var(--navy-dark); }
+        ::-webkit-scrollbar-thumb { background: var(--navy-light); border-radius: 4px; border: 1px solid var(--gold); }
+
+        #loadingOverlay {
+            position: fixed;
+            inset: 0;
+            background: var(--navy-dark);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 50;
+        }
     </style>
 </head>
-<body class="min-h-screen p-4 md:p-8">
+<body class="p-4 md:p-8">
 
-    <div class="max-w-6xl mx-auto space-y-6">
-        
-        <!-- 헤더 영역 -->
-        <header class="flex flex-col md:flex-row justify-between items-center border-b border-yellow-600/30 pb-4">
-            <h1 class="text-3xl font-bold text-yellow-500 flex items-center gap-2">
-                <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"></path></svg>
-                내 주식 포트폴리오
-            </h1>
-            
-            <!-- 필터 (체크박스) -->
-            <div class="mt-4 md:mt-0 flex gap-4 bg-slate-800/50 p-3 rounded-lg border border-slate-700">
-                <label class="flex items-center gap-2 cursor-pointer hover:text-yellow-400 transition">
-                    <input type="checkbox" id="chkDomestic" checked class="w-5 h-5 accent-yellow-500 cursor-pointer">
-                    <span class="font-medium">🇰🇷 국내 주식 (KRX)</span>
-                </label>
-                <label class="flex items-center gap-2 cursor-pointer hover:text-yellow-400 transition">
-                    <input type="checkbox" id="chkOverseas" checked class="w-5 h-5 accent-yellow-500 cursor-pointer">
-                    <span class="font-medium">🌎 해외 주식</span>
-                </label>
-            </div>
-        </header>
-
-        <!-- 로딩 표시 -->
-        <div id="loading" class="text-center py-20 text-yellow-500 text-xl font-bold animate-pulse">
-            데이터를 불러오는 중입니다...
-        </div>
-
-        <div id="dashboardContent" class="hidden space-y-6">
-            <!-- 차트 영역 -->
-            <div class="bg-slate-800/80 p-6 rounded-xl shadow-xl border border-slate-700">
-                <h2 class="text-xl font-semibold mb-4 text-slate-200 border-l-4 border-yellow-500 pl-3">최고가 대비 등락률</h2>
-                <div class="relative h-[300px] w-full">
-                    <canvas id="portfolioChart"></canvas>
-                </div>
-            </div>
-
-            <!-- 상세 테이블 영역 -->
-            <div class="bg-slate-800/80 p-6 rounded-xl shadow-xl border border-slate-700 overflow-hidden">
-                <h2 class="text-xl font-semibold mb-4 text-slate-200 border-l-4 border-yellow-500 pl-3">종목별 상세 정보</h2>
-                <div class="overflow-x-auto">
-                    <table class="w-full text-left border-collapse">
-                        <thead>
-                            <tr class="bg-slate-900/50 text-yellow-500 border-b border-yellow-600/30">
-                                <th class="p-4 font-semibold">종목명</th>
-                                <th class="p-4 font-semibold text-right">현재가</th>
-                                <th class="p-4 font-semibold text-right">등락률</th>
-                                <th class="p-4 font-semibold text-right">최고가 대비</th>
-                            </tr>
-                        </thead>
-                        <tbody id="tableBody" class="divide-y divide-slate-700/50">
-                            <!-- JS로 데이터 렌더링 -->
-                        </tbody>
-                    </table>
-                </div>
-            </div>
+    <!-- Loading Overlay -->
+    <div id="loadingOverlay">
+        <div class="text-center">
+            <div class="inline-block animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-[#d4af37] mb-4"></div>
+            <p class="text-lg font-semibold gold-gradient-text">데이터를 불러오는 중...</p>
         </div>
     </div>
 
-    <script>
-        const CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQfFVsBhAN3xXEIMziFD-SWrq3G4FLXH4f0B6BAW7iSAvU6GprQHs7NBZ1ZLVBlnlZIq0JbshYA0WZS/pub?gid=0&single=true&output=csv";
+    <div class="max-w-6xl mx-auto">
+        <!-- Header -->
+        <header class="mb-10 flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div>
+                <h1 class="text-3xl md:text-4xl font-bold gold-gradient-text mb-2 flex items-center gap-2">
+                    <i data-lucide="trending-up" class="w-8 h-8 text-[#d4af37]"></i>
+                    내 주식 포트폴리오
+                </h1>
+                <p class="text-slate-400">실시간 최고가 대비 수익률 및 자산 현황 분석</p>
+            </div>
+            <div class="card px-4 py-2 flex items-center gap-4">
+                <div class="text-right">
+                    <p class="text-xs text-slate-400 uppercase tracking-wider">마지막 업데이트</p>
+                    <p id="updateTime" class="text-sm font-mono text-[#d4af37]">-</p>
+                </div>
+                <button onclick="fetchData()" class="p-2 hover:bg-white/10 rounded-full transition-colors">
+                    <i data-lucide="refresh-cw" class="w-5 h-5"></i>
+                </button>
+            </div>
+        </header>
+
+        <!-- Top Metrics (Optional visualization of summary) -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8" id="summaryCards">
+            <!-- Summary stats will be injected here if needed -->
+        </div>
+
+        <!-- Main Chart Section -->
+        <section class="card p-6 mb-8">
+            <div class="flex items-center justify-between mb-6">
+                <h2 class="text-xl font-semibold flex items-center gap-2">
+                    <i data-lucide="bar-chart-3" class="text-[#d4af37]"></i>
+                    종목별 최고가 대비 등락률 (%)
+                </h2>
+                <span class="text-xs text-slate-400">* -20% 이하는 <span class="text-red-500 font-bold">빨간색</span>으로 표시됨</span>
+            </div>
+            <div class="h-[400px] w-full">
+                <canvas id="portfolioChart"></canvas>
+            </div>
+        </section>
+
+        <!-- Detailed Table Section -->
+        <section class="card overflow-hidden">
+            <div class="p-6 border-b border-white/10">
+                <h2 class="text-xl font-semibold flex items-center gap-2">
+                    <i data-lucide="list" class="text-[#d4af37]"></i>
+                    상세 포트폴리오 현황
+                </h2>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="w-full text-left border-collapse">
+                    <thead>
+                        <tr class="table-header bg-white/5">
+                            <th class="p-4 font-medium text-slate-300">종목명</th>
+                            <th class="p-4 font-medium text-slate-300 text-right">현재가</th>
+                            <th class="p-4 font-medium text-slate-300 text-right">일일 등락률</th>
+                            <th class="p-4 font-medium text-slate-300 text-right">최고가 대비</th>
+                        </tr>
+                    </thead>
+                    <tbody id="stockTableBody">
+                        <!-- Data rows injected here -->
+                    </tbody>
+                </table>
+            </div>
+        </section>
         
-        let allData = [];
-        let chartInstance = null;
+        <footer class="mt-8 text-center text-slate-500 text-sm">
+            <p>&copy; 2024 Portfolio Dashboard. Data sourced from Google Sheets.</p>
+        </footer>
+    </div>
 
-        // 컬럼 키 매핑 객체
-        let keys = { code: '', name: '', price: '', change: '', highDrop: '' };
+    <script>
+        const CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQfFVsBhAN3xXEIMziFD-SWrq3G4FLXH4f0B6BAW7iSAvU6GprQHs7NBZ1ZLVBlnlZIq0JbshYA0WZS/pub?gid=0&single=true&output=csv';
+        let portfolioChart = null;
 
-        // DOM 요소
-        const chkDomestic = document.getElementById('chkDomestic');
-        const chkOverseas = document.getElementById('chkOverseas');
-        const dashboardContent = document.getElementById('dashboardContent');
-        const loading = document.getElementById('loading');
+        // Initialize Icons
+        lucide.createIcons();
 
-        // 숫자 파싱 유틸리티 (콤마, % 제거)
-        const parseNumber = (str) => {
-            if (!str) return 0;
-            const num = parseFloat(str.toString().replace(/,/g, '').replace(/%/g, ''));
-            return isNaN(num) ? 0 : num;
+        // Helper to format currency
+        const formatPrice = (val) => {
+            const num = parseFloat(val);
+            if (isNaN(num)) return val;
+            return num.toLocaleString() + '원';
         };
 
-        // 데이터 불러오기 및 파싱
-        Papa.parse(CSV_URL, {
-            download: true,
-            header: true,
-            skipEmptyLines: true,
-            complete: function(results) {
-                const data = results.data;
-                const headers = results.meta.fields;
+        // Helper to format percentage
+        const formatPercent = (val) => {
+            const num = parseFloat(val);
+            if (isNaN(num)) return '0%';
+            return (num > 0 ? '+' : '') + num.toFixed(2) + '%';
+        };
 
-                // 동적 컬럼명 매칭 (유연하게 처리)
-                headers.forEach(h => {
-                    const str = h.replace(/\s/g, '');
-                    if (str.includes('코드')) keys.code = h;
-                    else if (str.includes('명') || str.includes('이름')) keys.name = h;
-                    else if (str.includes('최고') && str.includes('대비')) keys.highDrop = h;
-                    else if (str.includes('현재') || str.includes('가격')) keys.price = h;
-                    else if (str.includes('등락')) keys.change = h;
-                });
-
-                // 키 매칭 실패 시 기본 인덱스로 설정하는 폴백(Fallback)
-                if (!keys.code) keys.code = headers[0];
-                if (!keys.name) keys.name = headers[1];
-                if (!keys.price) keys.price = headers[2];
-                if (!keys.change) keys.change = headers[3];
-                if (!keys.highDrop) keys.highDrop = headers[4] || keys.change; // 없을 경우 대체
-
-                // 전역 배열에 가공된 데이터 저장
-                allData = data.map(row => ({
-                    code: row[keys.code] || '',
-                    name: row[keys.name] || '알 수 없음',
-                    priceText: row[keys.price] || '0',
-                    changeText: row[keys.change] || '0%',
-                    highDropText: row[keys.highDrop] || '0%',
-                    highDropVal: parseNumber(row[keys.highDrop]),
-                    changeVal: parseNumber(row[keys.change])
-                }));
-
-                // 로딩 숨기고 대시보드 표시
-                loading.classList.add('hidden');
-                dashboardContent.classList.remove('hidden');
-
-                updateDashboard();
-            },
-            error: function(err) {
-                loading.innerHTML = "데이터를 불러오는데 실패했습니다.<br>URL 또는 네트워크 상태를 확인해주세요.";
-                loading.classList.replace('text-yellow-500', 'text-red-500');
-            }
-        });
-
-        // 체크박스 이벤트 리스너 등록
-        chkDomestic.addEventListener('change', updateDashboard);
-        chkOverseas.addEventListener('change', updateDashboard);
-
-        // 대시보드 업데이트 함수 (필터링 적용)
-        function updateDashboard() {
-            const showDomestic = chkDomestic.checked;
-            const showOverseas = chkOverseas.checked;
-
-            const filteredData = allData.filter(item => {
-                const isKRX = item.code.toUpperCase().startsWith('KRX');
-                
-                // 둘 다 체크된 경우 모두 보여줌
-                if (showDomestic && showOverseas) return true;
-                // 국내주식만 체크된 경우 KRX 종목만 보여줌
-                if (showDomestic && isKRX) return true;
-                // 해외주식만 체크된 경우 KRX 이외의 종목만 보여줌
-                if (showOverseas && !isKRX) return true;
-                
-                // 둘 다 체크 해제된 경우 아무것도 안 보여줌
-                return false;
+        async function fetchData() {
+            document.getElementById('loadingOverlay').style.display = 'flex';
+            
+            Papa.parse(CSV_URL, {
+                download: true,
+                header: true,
+                skipEmptyLines: true,
+                complete: function(results) {
+                    renderDashboard(results.data);
+                    document.getElementById('loadingOverlay').style.display = 'none';
+                    document.getElementById('updateTime').innerText = new Date().toLocaleTimeString();
+                },
+                error: function(err) {
+                    console.error("CSV Load Error:", err);
+                    alert("데이터를 불러오는 데 실패했습니다.");
+                    document.getElementById('loadingOverlay').style.display = 'none';
+                }
             });
-
-            renderChart(filteredData);
-            renderTable(filteredData);
         }
 
-        // 1. 차트 렌더링
-        function renderChart(data) {
+        function renderDashboard(data) {
+            const labels = data.map(item => item['종목명']);
+            const highDiffData = data.map(item => parseFloat(item['최고가 대비 등락률'] || 0));
+            const currentPrices = data.map(item => item['현재가']);
+            const dailyChanges = data.map(item => item['등락률']);
+
+            // 1. Render Table
+            const tableBody = document.getElementById('stockTableBody');
+            tableBody.innerHTML = '';
+            
+            data.forEach(item => {
+                const row = document.createElement('tr');
+                const diff = parseFloat(item['최고가 대비 등락률']);
+                const daily = parseFloat(item['등락률']);
+                
+                row.className = 'hover:bg-white/5 transition-colors border-b border-white/5';
+                row.innerHTML = `
+                    <td class="p-4 ${diff <= -20 ? 'font-extrabold text-red-500' : 'font-semibold text-slate-100'}">${item['종목명']}</td>
+                    <td class="p-4 text-right font-mono">${formatPrice(item['현재가'])}</td>
+                    <td class="p-4 text-right font-mono ${daily >= 0 ? 'positive' : 'negative'}">${formatPercent(item['등락률'])}</td>
+                    <td class="p-4 text-right font-mono font-bold ${diff <= -20 ? 'text-red-500' : 'text-slate-200'}">${formatPercent(item['최고가 대비 등락률'])}</td>
+                `;
+                tableBody.appendChild(row);
+            });
+
+            // 2. Render Chart
+            renderChart(labels, highDiffData);
+        }
+
+        function renderChart(labels, values) {
             const ctx = document.getElementById('portfolioChart').getContext('2d');
             
-            const labels = data.map(item => item.name);
-            const dropData = data.map(item => item.highDropVal);
-            
-            // 색상 조건: -20% 이하면 빨강, 아니면 초록
-            const bgColors = dropData.map(val => val <= -20 ? 'rgba(239, 68, 68, 0.8)' : 'rgba(16, 185, 129, 0.8)'); // Red : Green
-            const borderColors = dropData.map(val => val <= -20 ? 'rgba(239, 68, 68, 1)' : 'rgba(16, 185, 129, 1)');
-
-            if (chartInstance) {
-                chartInstance.destroy(); // 기존 차트 삭제
+            if (portfolioChart) {
+                portfolioChart.destroy();
             }
 
-            chartInstance = new Chart(ctx, {
+            // Determine colors based on -20% threshold
+            const backgroundColors = values.map(val => val <= -20 ? '#ef4444' : '#10b981');
+            const borderColors = values.map(val => val <= -20 ? '#b91c1c' : '#059669');
+
+            portfolioChart = new Chart(ctx, {
                 type: 'bar',
                 data: {
                     labels: labels,
                     datasets: [{
                         label: '최고가 대비 등락률 (%)',
-                        data: dropData,
-                        backgroundColor: bgColors,
+                        data: values,
+                        backgroundColor: backgroundColors,
                         borderColor: borderColors,
                         borderWidth: 1,
                         borderRadius: 4
@@ -215,42 +245,40 @@
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
-                    plugins: {
-                        legend: { display: false },
-                        tooltip: {
-                            callbacks: {
-                                label: (context) => `${context.raw}%`
-                            }
-                        }
-                    },
                     scales: {
                         y: {
+                            beginAtZero: false,
                             grid: { color: 'rgba(255, 255, 255, 0.1)' },
                             ticks: { 
-                                color: '#94A3B8',
+                                color: '#94a3b8',
                                 callback: function(value) { return value + '%'; }
                             }
                         },
                         x: {
                             grid: { display: false },
-                            ticks: {
+                            ticks: { 
                                 color: function(context) {
-                                    const val = dropData[context.index];
-                                    if (val !== undefined && val <= -20) {
-                                        return '#EF4444'; // -20% 이하면 빨간색 지정
-                                    }
-                                    return '#CBD5E1'; // 기본 색상
+                                    return values[context.index] <= -20 ? '#ef4444' : '#94a3b8';
                                 },
-                                autoSkip: false, // 라벨 자동 생략 방지 (모든 종목명 표시)
-                                maxRotation: 45, // 텍스트가 겹치지 않게 45도 기울임
-                                minRotation: 45,
-                                // 조건에 따른 폰트 굵기 처리 (-20% 이하면 굵게)
                                 font: function(context) {
-                                    const val = dropData[context.index];
-                                    if (val !== undefined && val <= -20) {
-                                        return { weight: 'bold', size: 13 };
-                                    }
-                                    return { weight: 'normal', size: 12 };
+                                    return {
+                                        weight: values[context.index] <= -20 ? 'bold' : 'normal'
+                                    };
+                                }
+                            }
+                        }
+                    },
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            backgroundColor: '#1e293b',
+                            titleColor: '#d4af37',
+                            bodyColor: '#f8fafc',
+                            borderColor: 'rgba(212, 175, 55, 0.5)',
+                            borderWidth: 1,
+                            callbacks: {
+                                label: function(context) {
+                                    return `등락률: ${context.parsed.y}%`;
                                 }
                             }
                         }
@@ -259,42 +287,8 @@
             });
         }
 
-        // 2. 테이블 렌더링
-        function renderTable(data) {
-            const tbody = document.getElementById('tableBody');
-            tbody.innerHTML = '';
-
-            if (data.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="4" class="p-6 text-center text-slate-400">조건에 맞는 데이터가 없습니다.</td></tr>`;
-                return;
-            }
-
-            data.forEach(item => {
-                const tr = document.createElement('tr');
-                tr.className = 'hover:bg-slate-700/30 transition-colors';
-
-                // 등락률 색상 처리 (양수면 빨강/골드 계열, 음수면 파랑/초록 등 - 여기서는 단순 양/음수 색상)
-                const changeColor = item.changeVal > 0 ? 'text-red-400' : (item.changeVal < 0 ? 'text-blue-400' : 'text-slate-300');
-                
-                // 최고가 대비 -20% 이하일 때 종목명 굵게, 등락률 강하게 표시
-                const isDanger = item.highDropVal <= -20;
-                const nameStyle = isDanger ? 'font-bold text-red-400' : 'font-medium text-slate-200';
-                const dropStyle = isDanger ? 'font-bold text-red-500' : 'text-green-400';
-
-                tr.innerHTML = `
-                    <td class="p-4 ${nameStyle}">
-                        <div class="flex flex-col">
-                            <span>${item.name}</span>
-                            <span class="text-xs text-slate-500 font-normal">${item.code}</span>
-                        </div>
-                    </td>
-                    <td class="p-4 text-right text-slate-300 font-mono">${item.priceText}</td>
-                    <td class="p-4 text-right font-mono ${changeColor}">${item.changeVal > 0 ? '+' : ''}${item.changeText}</td>
-                    <td class="p-4 text-right font-mono ${dropStyle}">${item.highDropText}</td>
-                `;
-                tbody.appendChild(tr);
-            });
-        }
+        // Initial Fetch
+        window.onload = fetchData;
     </script>
 </body>
 </html>
