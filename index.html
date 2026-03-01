@@ -68,7 +68,7 @@
         }
     </style>
 </head>
-<body class="p-4 md:p-8">
+<body class="p-3 md:p-8 text-sm md:text-base">
 
     <!-- Loading Overlay -->
     <div id="loadingOverlay">
@@ -80,17 +80,17 @@
 
     <div class="max-w-6xl mx-auto">
         <!-- Header -->
-        <header class="mb-10 flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <header class="mb-6 md:mb-10 flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div>
-                <h1 class="text-3xl md:text-4xl font-bold gold-gradient-text mb-2 flex items-center gap-2">
-                    <i data-lucide="trending-up" class="w-8 h-8 text-[#d4af37]"></i>
+                <h1 class="text-2xl md:text-4xl font-bold gold-gradient-text mb-2 flex items-center gap-2">
+                    <i data-lucide="trending-up" class="w-7 h-7 md:w-8 md:h-8 text-[#d4af37]"></i>
                     내 주식 포트폴리오
                 </h1>
-                <p class="text-slate-400">실시간 최고가 대비 수익률 및 자산 현황 분석</p>
+                <p class="text-xs md:text-sm text-slate-400">실시간 최고가 대비 수익률 및 자산 현황 분석</p>
             </div>
-            <div class="card px-4 py-2 flex items-center gap-4">
+            <div class="card px-4 py-3 flex items-center justify-between md:justify-end gap-4 w-full md:w-auto">
                 <div class="text-right">
-                    <p class="text-xs text-slate-400 uppercase tracking-wider">마지막 업데이트</p>
+                    <p class="text-[10px] md:text-xs text-slate-400 uppercase tracking-wider">마지막 업데이트</p>
                     <p id="updateTime" class="text-sm font-mono text-[#d4af37]">-</p>
                 </div>
                 <button onclick="fetchData()" class="p-2 hover:bg-white/10 rounded-full transition-colors">
@@ -105,35 +105,35 @@
         </div>
 
         <!-- Main Chart Section -->
-        <section class="card p-6 mb-8">
-            <div class="flex items-center justify-between mb-6">
-                <h2 class="text-xl font-semibold flex items-center gap-2">
+        <section class="card p-4 md:p-6 mb-8">
+            <div class="flex flex-col md:flex-row md:items-center justify-between mb-6 gap-2">
+                <h2 class="text-lg md:text-xl font-semibold flex items-center gap-2">
                     <i data-lucide="bar-chart-3" class="text-[#d4af37]"></i>
                     종목별 최고가 대비 등락률 (%)
                 </h2>
                 <span class="text-xs text-slate-400">* -20% 이하는 <span class="text-red-500 font-bold">빨간색</span>으로 표시됨</span>
             </div>
-            <div class="h-[400px] w-full">
+            <div class="h-[250px] md:h-[400px] w-full">
                 <canvas id="portfolioChart"></canvas>
             </div>
         </section>
 
         <!-- Detailed Table Section -->
         <section class="card overflow-hidden">
-            <div class="p-6 border-b border-white/10">
-                <h2 class="text-xl font-semibold flex items-center gap-2">
+            <div class="p-4 md:p-6 border-b border-white/10">
+                <h2 class="text-lg md:text-xl font-semibold flex items-center gap-2">
                     <i data-lucide="list" class="text-[#d4af37]"></i>
                     상세 포트폴리오 현황
                 </h2>
             </div>
             <div class="overflow-x-auto">
-                <table class="w-full text-left border-collapse">
+                <table class="w-full text-left border-collapse min-w-[450px]">
                     <thead>
                         <tr class="table-header bg-white/5">
-                            <th class="p-4 font-medium text-slate-300">종목명</th>
-                            <th class="p-4 font-medium text-slate-300 text-right">현재가</th>
-                            <th class="p-4 font-medium text-slate-300 text-right">일일 등락률</th>
-                            <th class="p-4 font-medium text-slate-300 text-right">최고가 대비</th>
+                            <th class="p-3 md:p-4 font-medium text-slate-300 whitespace-nowrap">종목명</th>
+                            <th class="p-3 md:p-4 font-medium text-slate-300 text-right whitespace-nowrap">현재가</th>
+                            <th class="p-3 md:p-4 font-medium text-slate-300 text-right whitespace-nowrap">일일 등락률</th>
+                            <th class="p-3 md:p-4 font-medium text-slate-300 text-right whitespace-nowrap">최고가 대비</th>
                         </tr>
                     </thead>
                     <tbody id="stockTableBody">
@@ -206,10 +206,10 @@
                 
                 row.className = 'hover:bg-white/5 transition-colors border-b border-white/5';
                 row.innerHTML = `
-                    <td class="p-4 ${diff <= -20 ? 'font-extrabold text-red-500' : 'font-semibold text-slate-100'}">${item['종목명']}</td>
-                    <td class="p-4 text-right font-mono">${formatPrice(item['현재가'])}</td>
-                    <td class="p-4 text-right font-mono ${daily >= 0 ? 'positive' : 'negative'}">${formatPercent(item['등락률'])}</td>
-                    <td class="p-4 text-right font-mono font-bold ${diff <= -20 ? 'text-red-500' : 'text-slate-200'}">${formatPercent(item['최고가 대비 등락률'])}</td>
+                    <td class="p-3 md:p-4 whitespace-nowrap ${diff <= -20 ? 'font-extrabold text-red-500' : 'font-semibold text-slate-100'}">${item['종목명']}</td>
+                    <td class="p-3 md:p-4 whitespace-nowrap text-right font-mono">${formatPrice(item['현재가'])}</td>
+                    <td class="p-3 md:p-4 whitespace-nowrap text-right font-mono ${daily >= 0 ? 'positive' : 'negative'}">${formatPercent(item['등락률'])}</td>
+                    <td class="p-3 md:p-4 whitespace-nowrap text-right font-mono font-bold ${diff <= -20 ? 'text-red-500' : 'text-slate-200'}">${formatPercent(item['최고가 대비 등락률'])}</td>
                 `;
                 tableBody.appendChild(row);
             });
